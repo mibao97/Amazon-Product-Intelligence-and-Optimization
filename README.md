@@ -52,19 +52,19 @@ This project aims to:
 Business Recommendations
 1. Inventory Optimization<ul>
     <li> Ensure high-review products stay in stock
-    <li> Ensure high-review products stay in stock Use reviews as a proxy for demand forecasting</ul>
+    <li> Use reviews as a proxy for demand forecasting</ul>
    
 2. Smart Pricing Strategy<ul>
-    <li> Ensure high-review products stay in stock Maintain consistent pricing within brands
-    <li> Ensure high-review products stay in stock Re-evaluate extreme price gaps across categories</ul>
+    <li> Ensure high-review products stay in stock 
+    <li> Maintain consistent pricing within brands
+    <li> Re-evaluate extreme price gaps across categories</ul>
 
 3. Discount Optimization<ul>
-     <li> Ensure high-review products stay in stock Apply higher discounts to lower-tier categories
-     <li> Ensure high-review products stay in stock Use targeted discounts instead of blanket promotions</ul>
+     <li> Apply higher discounts to lower-tier categories
+     <li> Use targeted discounts instead of blanket promotions</ul>
 
 4. Strategic Promotion Timing<ul>
-    <li> Ensure high-review products stay in stock Leverage end-of-month discount spikes
-    <li> Ensure high-review products stay in stock 
+    <li> Leverage end-of-month discount spikes
     <li>Create campaigns around:
          “Deals are back” || 
          “Limited-time offers”</ul>
