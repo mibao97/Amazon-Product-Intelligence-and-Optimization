@@ -1,0 +1,147 @@
+// data cleaning 
+ALTER TABLE `amazon_dataset` DROP COLUMN `tags`, []
+ALTER TABLE `amazon_dataset` DROP COLUMN `images_count`, []
+ALTER TABLE `amazon_dataset` DROP COLUMN `description`, []
+ALTER TABLE 'amazon_dataset' DROP COLUMN "subcategory"
+
+// change discount_pct data type from int to double
+ALTER TABLE 'amazon_dataset' MODIFY COLUMN “DISCOUNT_PCT” double 
+
+// cleaning data with null values
+UPDATE FROM amazon_dataset
+set price_original = price_current
+where price_original is NULL
+
+UPDATE FROM amazon_dataset
+set discount_pct = 0
+where discount_pct is NULL
+
+// unified other currency into USD
+select currency, 
+CASE 
+WHEN currency = “AED” then price_original*0.27 and price_current*0.27
+WHEN currency = “EGP” then price_original*0.019 and price_current*0.19
+WHEN currency = “USD” then price_original and price_current
+END AT original_price
+FROM amazon_dataset
+
+select currency
+case when currency = “AED” or currency = “EGP” then "USD" end as currencies
+from FROM amazon_dataset
+
+
+
+// getiing top category
+SELECT category, max(price_current) as max_price, round(avg(rating_score),2) as avg_rating, rank() over (order by avg(rating_score) desc) as rnk
+FROM amazon_dataset
+group by category
+order by rnk
+
+// clustering products into different segments
+with table_sum as (
+    SELECT *,
+    CASE WHEN price_current >= 100 and rating_score >= 3.5 
+    then "Premium" else "Budget" end as product_segment,
+    CASE WHEN rating_score < 3.0 and reviews_count < 100 then "Low" else "High" end as product_performance,
+    coalesce((rating_score * currency),0) as popularity_score
+    FROM amazon_dataset)
+
+  
+// detect inflated discount (huge % percentage but low engagement)
+inflated_discount as (
+select category, round(avg(discount_pct),2) as avg_discount_pct, round(avg(rating_score),2) as avg_rating, round(avg(reviews_count),2) as avg_review_cnt
+from cte
+group by category
+order by discount_pct DESC, avg_rating asc)
+
+  
+// brand performance analysis 
+brand_performance as (
+select brand, round(avg(rating_score),2) as avg_rating, round(sum(reviews_count),2) as total_review, round(avg(price_current),2) as avg_price
+from amazon_dataset
+group by brand
+order by total_review desc )
+
+  
+// brand performance to its category (brand contribution % to its category revenue)
+brand_contribution as (
+select a.category, a.brand, round(sum(a.price_current) / cte1.revenue *100, 2) as revenue_pct
+from amazon_dataset a 
+left join (
+    select category, sum(price_current) as revenue
+    from amazon_dataset
+    group by category
+) as cte1 on a.category = cte1.category
+group by a.category, a.brand
+order by a.category, a.brand)
+
+  
+// high performance category and its revenue distribution 
+category_performance as (
+select category, count(*) as product_cnt, round(avg(rating_score),2) as avg_rating, round(sum(price_current)/(select sum(price_current) from amazon_dataset)*100,2) as revenue_pct
+from amazon_dataset
+group by category
+order by revenue_pct DESC)
+
+
+// discount effectiveness
+select discount_pct, round(avg(rating_score),2) as avg_rating, round(avg(reviews_count),2) as avg_review_cnt
+from amazon_dataset
+where discount_pct > 0
+group by discount_pct
+order by discount_pct, avg_rating DESC
+
+// Underperforming products (low rating, high availability)
+select category, title, count(*) as product_cnt, rating_score
+from amazon_dataset
+where availability = "in_stock" and rating_score < 3
+group by category, title
+order by rating_score desc, category, title
+
+
+// high performance (high rating, low availability)
+select category, title, count(*) as product_cnt, rating_score
+from amazon_dataset
+where availability in ("out_of_stock", "limited") and rating_score >= 4
+group by category, title
+order by rating_score desc, category, title
+
+  
+// price distribution by brand 
+select brand, count(*) as product_cnt, min(price_current) as min_price, max(price_current) as max_price, avg(price_current) over (PARTITION BY brand) as avg_price, percentile_cont(0.5) WITHIN GROUP (order by price_current) over () as median_price
+from amazon_dataset
+GROUP BY brand
+ORDER BY product_cnt asc
+
+
+// discount behavior by brand in each category
+select brand, category, ceil(avg(discount_pct)) as avg_discount, max(discount_pct) as max_discount, count(*) as total_product
+from amazon_dataset
+where discount_pct > 0
+GROUP BY brand
+ORDER BY avg_discount desc, brand
+
+// discount percentage vs. inventory correlation
+select brand,
+CASE 
+WHEN discount_pct < 0.2 then "0-10%"
+when discount_pct < 0.3 then "10-30%"
+when discount_pct < 0.5 then "30-50%"
+else "50%+" end as discount_bucket
+from amazon_dataset
+where discount_pct > 0
+group by brand
+
+
+// price trend by period
+select category, scraped_at,  discount_pct, rank() over (PARTITION by scraped_at order by discount_pct desc) as discount_rnk
+from amazon_dataset
+where discount_pct > 0 
+order by category
+
+
+// Product Recommendation Analysis:
+select category, title, sum(reviews_count) as total_review
+from amazon_dataset
+group by category, title 
+order by category
